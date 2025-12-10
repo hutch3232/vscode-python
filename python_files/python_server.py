@@ -74,7 +74,7 @@ input = custom_input  # noqa: A001
 
 
 def handle_response(request_id):
-    while not STDIN.closed:
+    while True:
         try:
             headers = get_headers()
             # Content-Length is the data size in bytes.
@@ -88,8 +88,10 @@ def handle_response(request_id):
                     send_response(our_user_input, message_json["id"])
                 elif message_json["method"] == "exit":
                     sys.exit(0)
-
-        except Exception:  # noqa: PERF203
+        except EOFError:  # noqa: PERF203
+            print_log("EOF received, exiting.")
+            sys.exit(0)
+        except Exception:
             print_log(traceback.format_exc())
 
 
@@ -164,7 +166,11 @@ class CustomIO(io.TextIOWrapper):
 def get_headers():
     headers = {}
     while True:
-        line = STDIN.buffer.readline().decode().strip()
+        raw = STDIN.buffer.readline()
+        # detect hard EOF
+        if raw == b"":
+            raise EOFError("EOF reached while reading headers")
+        line = raw.decode().strip()
         if not line:
             break
         name, value = line.split(":", 1)
@@ -183,7 +189,7 @@ if __name__ == "__main__":
     while "" in sys.path:
         sys.path.remove("")
     sys.path.insert(0, "")
-    while not STDIN.closed:
+    while True:
         try:
             headers = get_headers()
             # Content-Length is the data size in bytes.
@@ -198,6 +204,8 @@ if __name__ == "__main__":
                     check_valid_command(request_json)
                 elif request_json["method"] == "exit":
                     sys.exit(0)
-
-        except Exception:  # noqa: PERF203
+        except EOFError:  # noqa: PERF203
+            print_log("EOF received, exiting.")
+            sys.exit(0)
+        except Exception:
             print_log(traceback.format_exc())
